@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className="w-56 bg-white border-r border-prizma-300 flex flex-col">
         <div className="p-5 border-b border-prizma-300">
           <Wordmark size="sm" />
+          <p className="text-[10px] text-prizma-400 mt-1">Versão 1.0</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map((item) => (
