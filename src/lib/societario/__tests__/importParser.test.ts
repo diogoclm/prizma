@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateRows, resolveShareholderRows, type RawRow } from "../importParser";
+import { validateRows, resolveShareholderRows, normalizeHeader, type RawRow } from "../importParser";
 
 describe("validateRows", () => {
   it("valida linha completa e correta", () => {
@@ -45,6 +45,14 @@ describe("validateRows", () => {
     const result = validateRows(raw);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].message).toMatch(/tipo/);
+  });
+
+  it("aceita coluna 'descricao' como alias de motivo (via normalizeHeader)", () => {
+    expect(normalizeHeader("descricao")).toBe("reason");
+    expect(normalizeHeader("Descrição")).toBe("reason");
+    const raw: RawRow[] = [{ shareholderName: "JR", date: "2024-03-15", amount: 100, type: "APORTE", reason: "Aporte trimestral" }];
+    const result = validateRows(raw);
+    expect(result.validRows[0].reason).toBe("Aporte trimestral");
   });
 
   it("captura projeto opcional", () => {

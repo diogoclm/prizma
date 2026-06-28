@@ -21,6 +21,9 @@ const HEADER_ALIASES: Record<string, string> = {
   type: "type",
   motivo: "reason",
   reason: "reason",
+  descricao: "reason",
+  "descrição": "reason",
+  description: "reason",
   origem: "source",
   source: "source",
   projeto: "projectName",
@@ -58,7 +61,7 @@ export interface ParseResult {
   totalRows: number;
 }
 
-function normalizeHeader(h: string): string {
+export function normalizeHeader(h: string): string {
   const key = h.trim().toLowerCase();
   return HEADER_ALIASES[key] ?? key;
 }

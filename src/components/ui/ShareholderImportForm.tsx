@@ -96,7 +96,7 @@ export function ShareholderImportForm({ onImported }: { onImported?: () => void 
         <h3 className="text-sm font-semibold text-prizma-600">Importar planilha</h3>
         <p className="text-xs text-prizma-400 mt-1">
           Colunas obrigatórias: <code className="text-prizma-600">acionista, data, valor, tipo</code>. Opcional:{" "}
-          <code className="text-prizma-600">motivo, origem, projeto</code> (projeto só se aplica a lançamentos de administração).
+          <code className="text-prizma-600">motivo (ou descricao), origem, projeto</code> (projeto só se aplica a lançamentos de administração).
           Tipos válidos: APORTE, DIVIDENDO, ADMINISTRACAO.
         </p>
       </div>
