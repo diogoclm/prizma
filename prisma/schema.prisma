@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Branch {
+  HOTELEIRO
+  IMOBILIARIO
+}
+
+enum ProjectStage {
+  LANDBANKING
+  LANCAMENTO
+  CONSTRUCAO
+  ENTREGUE
+  OPERACAO_CONTINUA
+  ENCERRADO
+}
+
+enum CashFlowType {
+  APORTE
+  DISTRIBUICAO
+  RECEBIMENTO_VENDA
+  CUSTO
+  VALOR_TERMINAL
+}
+
+enum CashFlowOrigin {
+  REALIZADO
+  PROJETADO
+}
+
+enum AcquisitionType {
+  COMPRA
+  PERMUTA
+}
+
+enum ShareholderTxType {
+  APORTE         // acionista → Prizma
+  DIVIDENDO      // Prizma → acionista
+  ADMINISTRACAO  // Prizma → acionista (taxa de administração)
+}
+
+// ─── Projeto / SPE ───────────────────────────────────────────────────────────
+
+model Project {
+  id               String       @id @default(cuid())
+  name             String
+  branch           Branch
+  stage            ProjectStage
+  ownershipPct     Float        @default(100) // participação da Prizma (%)
+  description      String?
+  launchDate       DateTime?
+  deliveryDate     DateTime?
+  closureDate      DateTime?
+  // Landbanking: forma de aquisição do terreno (compra em dinheiro ou permuta)
+  acquisitionType  AcquisitionType?
+  permutaDetails   String?      // ex: "20% das unidades futuras" — só relevante se PERMUTA
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  cashFlowEvents   CashFlowEvent[]
+  baselines        Baseline[]
+  valuations       Valuation[]
+  importBatches    ImportBatch[]
+  shareholderTransactions ShareholderTransaction[]
+
+  @@map("projects")
+}
+
+// ─── Eventos de fluxo de caixa ───────────────────────────────────────────────
+
+model CashFlowEvent {
+  id          String         @id @default(cuid())
+  projectId   String
+  date        DateTime
+  // positivo = entrada (distribuição, venda); negativo = saída (aporte, custo)
+  amount      Float
+  type        CashFlowType
+  origin      CashFlowOrigin
+  description String?
+  scenarioId  String?        // para reprojeções sem afetar o baseline
+  importId    String?        // rastreio de qual importação originou
+
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  import      ImportBatch?   @relation(fields: [importId], references: [id])
+
+  @@index([projectId, date])
+  @@index([scenarioId])
+  @@map("cash_flow_events")
+}
+
+// ─── Baseline (marco congelado) ───────────────────────────────────────────────
+
+model Baseline {
+  id              String    @id @default(cuid())
+  projectId       String
+  version         Int       @default(1)
+  label           String    // ex: "Aprovação inicial", "Revisão Q1 2025"
+  frozenAt        DateTime  @default(now())
+  isFrozen        Boolean   @default(false)
+
+  // premissas registradas no momento do marco
+  assumptionVgv   Float?    // VGV esperado (imobiliário)
+  assumptionCost  Float?    // custo total esperado
+  assumptionNoi   Float?    // NOI anual esperado (hoteleiro)
+  assumptionNotes String?   // outras premissas em texto livre
+
+  // métricas calculadas e gravadas ao congelar
+  projectedIrr    Float?    // TIR projetada (%)
+  projectedMoic   Float?    // múltiplo esperado
+  projectedNpv    Float?    // VPL esperado
+
+  // fluxo projetado snapshot (JSON com array de {date, amount})
+  projectedCashFlows Json?
+
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, version])
+  @@map("baselines")
+}
+
+// ─── Valuation (marcação a mercado — especialmente hoteleiro) ────────────────
+
+model Valuation {
+  id          String   @id @default(cuid())
+  projectId   String
+  date        DateTime
+  value       Float    // valor total do projeto (antes da participação)
+  method      String?  // ex: "EBITDA x múltiplo", "laudo", "estimativa interna"
+  notes       String?
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, date])
+  @@map("valuations")
+}
+
+// ─── Importação de planilhas ──────────────────────────────────────────────────
+
+model ImportBatch {
+  id          String    @id @default(cuid())
+  projectId   String
+  fileName    String
+  importedAt  DateTime  @default(now())
+  rowCount    Int       @default(0)
+  errorCount  Int       @default(0)
+  errors      Json?     // array de {row, message}
+  status      String    @default("PENDING") // PENDING | SUCCESS | PARTIAL | ERROR
+
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events      CashFlowEvent[]
+
+  @@map("import_batches")
+}
+
+// ─── Societário: Acionistas ───────────────────────────────────────────────────
+
+model Shareholder {
+  id           String   @id @default(cuid())
+  name         String
+  adminPct     Float    @default(0) // % de administração — apenas referência informativa
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions ShareholderTransaction[]
+
+  @@map("shareholders")
+}
+
+model ShareholderTransaction {
+  id            String            @id @default(cuid())
+  shareholderId String
+  projectId     String?           // linkado apenas em pagamentos de ADMINISTRACAO, p/ saldo automático por projeto
+  date          DateTime
+  amount        Float             // sempre positivo — o sentido vem do "type"
+  type          ShareholderTxType
+  reason        String?           // motivo do lançamento
+  source        String?           // origem do pagamento/recebimento (texto livre, ex: "Hotel Nannai")
+  createdAt     DateTime          @default(now())
+
+  shareholder   Shareholder       @relation(fields: [shareholderId], references: [id], onDelete: Cascade)
+  project       Project?          @relation(fields: [projectId], references: [id])
+
+  @@index([shareholderId, date])
+  @@index([projectId])
+  @@map("shareholder_transactions")
+}
