@@ -92,12 +92,17 @@ export default function PLPage() {
             <div className="bg-white border border-prizma-300 rounded-xl p-5 mb-6">
               <p className="text-xs text-prizma-400 uppercase tracking-wide mb-3">Histórico de pagamentos</p>
               <div className="space-y-1">
-                {[...years].sort((a, b) => a.year - b.year).map((y) => (
-                  <div key={y.id} className="flex justify-between text-sm">
-                    <span className="text-prizma-600">Ano {y.year}</span>
-                    <span className="font-mono text-prizma-900">{fmtBrl(y.amountPaid)}</span>
-                  </div>
-                ))}
+                {[...years].sort((a, b) => a.year - b.year).map((y) => {
+                  const salaryMultiple = y.averageSalary > 0 ? y.amountPaid / y.averageSalary : null;
+                  return (
+                    <div key={y.id} className="grid grid-cols-4 gap-3 text-sm">
+                      <span className="text-prizma-600">Ano {y.year}</span>
+                      <span className="text-prizma-400 text-right">Salário médio: {fmtBrl(y.averageSalary)}</span>
+                      <span className="text-prizma-400 text-right">{salaryMultiple !== null ? `${salaryMultiple.toFixed(1)}x o salário` : "—"}</span>
+                      <span className="font-mono text-prizma-900 text-right">{fmtBrl(y.amountPaid)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
