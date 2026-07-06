@@ -17,11 +17,11 @@ export interface PLYearSummary {
   amountPaid: number;
   pctOfTeto: number | null; // null quando teto = 0
   totalLiquidCashGen: number;
-  totalBaseCalculo: number; // soma de (liquidCashGen * liquidCashGenPct - officeDiscount) * phasePct por projeto
+  totalBaseCalculo: number; // soma de (liquidCashGen - officeDiscount) * liquidCashGenPct * phasePct por projeto
 }
 
 export function calcPLProjectBase(project: PLProjectLike): number {
-  return (project.liquidCashGen * project.liquidCashGenPct - project.officeDiscount) * project.phasePct;
+  return (project.liquidCashGen - project.officeDiscount) * project.liquidCashGenPct * project.phasePct;
 }
 
 export function calcPLYearSummary(plYear: PLYearLike): PLYearSummary {
