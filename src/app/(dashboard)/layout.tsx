@@ -14,6 +14,7 @@ const navItems = [
 const societarioItems = [
   { href: "/dashboard/acionistas", label: "Acionistas" },
   { href: "/dashboard/administracao", label: "Administração" },
+  { href: "/dashboard/pl", label: "Participação de Lucros" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

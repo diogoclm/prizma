@@ -192,3 +192,39 @@ model ShareholderTransaction {
   @@index([projectId])
   @@map("shareholder_transactions")
 }
+
+// ─── Societário: Participação de Lucros (PL) do executivo ───────────────────
+
+model PLYear {
+  id               String      @id @default(cuid())
+  year             Int         @unique
+  averageSalary    Float       @default(0) // salário médio mensal do ano
+  salaryMultiplier Float       @default(0) // teto = averageSalary * salaryMultiplier
+  amountPaid       Float       @default(0) // valor de PL efetivamente pago no ano
+  evaluationScore  Float?      // % de atingimento da avaliação (fração 0–1)
+  evaluationNotes  String?     // texto livre da avaliação do ano
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  projects         PLProject[]
+
+  @@map("pl_years")
+}
+
+model PLProject {
+  id               String   @id @default(cuid())
+  plYearId         String
+  name             String   // nome do projeto/meta entregue
+  liquidCashGenPct Float    @default(0) // % da Geração Líquida de Caixa considerado na PL
+  liquidCashGen    Float    @default(0) // Geração Líquida de Caixa do projeto (R$)
+  officeDiscount   Float    @default(0) // desconto do custo do escritório (R$)
+  phase            String?  // fase do projeto (ex: "Fase 1", "Entrega")
+  phasePct         Float    @default(1) // % da fase — multiplica a base de cálculo
+  notes            String?
+  order            Int      @default(0)
+
+  plYear           PLYear   @relation(fields: [plYearId], references: [id], onDelete: Cascade)
+
+  @@index([plYearId])
+  @@map("pl_projects")
+}
