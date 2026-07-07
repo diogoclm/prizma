@@ -22,9 +22,11 @@ interface ShareholderTxRowProps {
   shareholderId: string;
   tx: Tx;
   onChanged: () => void;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }
 
-export function ShareholderTxRow({ shareholderId, tx, onChanged }: ShareholderTxRowProps) {
+export function ShareholderTxRow({ shareholderId, tx, onChanged, selected, onToggleSelect }: ShareholderTxRowProps) {
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(tx.date.split("T")[0]);
   const [amount, setAmount] = useState(String(tx.amount));
@@ -60,6 +62,9 @@ export function ShareholderTxRow({ shareholderId, tx, onChanged }: ShareholderTx
   if (!editing) {
     return (
       <tr className="bg-white hover:bg-prizma-50">
+        <td className="px-3 py-2">
+          <input type="checkbox" checked={selected} onChange={() => onToggleSelect(tx.id)} className="rounded border-prizma-300" />
+        </td>
         <td className="px-4 py-2 text-prizma-600">{fmtDate(tx.date)}</td>
         <td className="px-4 py-2">
           <span className={`px-2 py-0.5 rounded text-xs ${
@@ -85,6 +90,9 @@ export function ShareholderTxRow({ shareholderId, tx, onChanged }: ShareholderTx
 
   return (
     <tr className="bg-prizma-100">
+      <td className="px-3 py-2">
+        <input type="checkbox" checked={selected} onChange={() => onToggleSelect(tx.id)} className="rounded border-prizma-300" />
+      </td>
       <td className="px-2 py-2">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="w-full bg-white border border-prizma-300 rounded px-2 py-1 text-xs text-prizma-900" />

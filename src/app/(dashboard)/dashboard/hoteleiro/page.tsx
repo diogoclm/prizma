@@ -55,6 +55,7 @@ export default function HoteleiroPage() {
   const [showValuationForm, setShowValuationForm] = useState(false);
   const [events, setEvents] = useState<CashFlowEvent[]>([]);
   const [valuations, setValuations] = useState<ValuationEntry[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(() => {
     fetch("/api/hoteleiro")
@@ -83,6 +84,37 @@ export default function HoteleiroPage() {
     if (!data) return;
     if (!confirm("Remover esta marcação?")) return;
     await fetch(`/api/projects/${data.projectId}/valuations/${id}`, { method: "DELETE" });
+    loadData();
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allSelected = events.length > 0 && events.every((e) => prev.has(e.id));
+      return allSelected ? new Set() : new Set(events.map((e) => e.id));
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (!data) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Remover ${ids.length} lançamento${ids.length > 1 ? "s" : ""} selecionado${ids.length > 1 ? "s" : ""}?`)) return;
+
+    await fetch(`/api/projects/${data.projectId}/cashflows`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    setSelectedIds(new Set());
     loadData();
   }
 
@@ -224,11 +256,29 @@ export default function HoteleiroPage() {
       )}
 
       {/* Tabela de lançamentos (editável) */}
-      <h2 className="text-sm font-semibold text-prizma-600 mb-2">Lançamentos ({events.length})</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-prizma-600">Lançamentos ({events.length})</h2>
+        {selectedIds.size > 0 && (
+          <button
+            onClick={handleBulkDelete}
+            className="px-3 py-1.5 bg-white border border-negative text-negative hover:opacity-80 rounded-lg text-xs transition-colors"
+          >
+            Apagar selecionados ({selectedIds.size})
+          </button>
+        )}
+      </div>
       <div className="rounded-xl border border-prizma-300 overflow-hidden mb-6">
         <table className="w-full text-sm">
           <thead className="bg-white text-prizma-400 text-xs">
             <tr>
+              <th className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={events.length > 0 && events.every((e) => selectedIds.has(e.id))}
+                  onChange={toggleSelectAll}
+                  className="rounded border-prizma-300"
+                />
+              </th>
               <th className="px-4 py-2 text-left">Data</th>
               <th className="px-4 py-2 text-right">Valor</th>
               <th className="px-4 py-2 text-left">Tipo</th>
@@ -239,10 +289,17 @@ export default function HoteleiroPage() {
           </thead>
           <tbody className="divide-y divide-prizma-200">
             {events.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
             )}
             {events.map((e) => (
-              <CashFlowRow key={e.id} projectId={data.projectId} event={e} onChanged={loadData} />
+              <CashFlowRow
+                key={e.id}
+                projectId={data.projectId}
+                event={e}
+                onChanged={loadData}
+                selected={selectedIds.has(e.id)}
+                onToggleSelect={toggleSelect}
+              />
             ))}
           </tbody>
         </table>

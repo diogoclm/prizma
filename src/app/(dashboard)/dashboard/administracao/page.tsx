@@ -53,6 +53,7 @@ export default function AdministracaoPage() {
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [editingPctId, setEditingPctId] = useState<string | null>(null);
   const [pctValue, setPctValue] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     Promise.all([
@@ -74,6 +75,44 @@ export default function AdministracaoPage() {
       body: JSON.stringify({ adminPct: parseFloat(pctValue.replace(",", ".")) / 100 }),
     });
     setEditingPctId(null);
+    load();
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(txs: Tx[]) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = txs.length > 0 && txs.every((tx) => next.has(tx.id));
+      txs.forEach((tx) => {
+        if (allSelected) next.delete(tx.id); else next.add(tx.id);
+      });
+      return next;
+    });
+  }
+
+  async function handleBulkDelete(shareholderId: string, txs: Tx[]) {
+    const ids = txs.map((tx) => tx.id).filter((id) => selectedIds.has(id));
+    if (ids.length === 0) return;
+    if (!confirm(`Remover ${ids.length} pagamento${ids.length > 1 ? "s" : ""} selecionado${ids.length > 1 ? "s" : ""}?`)) return;
+
+    await fetch(`/api/shareholders/${shareholderId}/transactions`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
     load();
   }
 
@@ -249,18 +288,29 @@ export default function AdministracaoPage() {
               {shareholders.map((sh) => {
                 const adminTxs = sh.transactions.filter((t) => t.type === "ADMINISTRACAO");
                 const total = adminTxs.reduce((s, t) => s + t.amount, 0);
+                const selectedCount = adminTxs.filter((tx) => selectedIds.has(tx.id)).length;
                 return (
                   <div key={sh.id}>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-semibold text-prizma-600">
                         {sh.name} <span className="text-prizma-400">— {fmtBrl(total)}</span>
                       </h3>
-                      <button
-                        onClick={() => setOpenTxFormId(openTxFormId === sh.id ? null : sh.id)}
-                        className="px-3 py-1 bg-prizma-100 hover:bg-prizma-200 rounded text-xs text-prizma-800"
-                      >
-                        {openTxFormId === sh.id ? "Cancelar" : "+ Pagamento"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {selectedCount > 0 && (
+                          <button
+                            onClick={() => handleBulkDelete(sh.id, adminTxs)}
+                            className="px-3 py-1 bg-white border border-negative text-negative hover:opacity-80 rounded text-xs"
+                          >
+                            Apagar selecionados ({selectedCount})
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setOpenTxFormId(openTxFormId === sh.id ? null : sh.id)}
+                          className="px-3 py-1 bg-prizma-100 hover:bg-prizma-200 rounded text-xs text-prizma-800"
+                        >
+                          {openTxFormId === sh.id ? "Cancelar" : "+ Pagamento"}
+                        </button>
+                      </div>
                     </div>
 
                     {openTxFormId === sh.id && (
@@ -279,6 +329,14 @@ export default function AdministracaoPage() {
                       <table className="w-full text-sm">
                         <thead className="bg-prizma-100 text-prizma-400 text-xs">
                           <tr>
+                            <th className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={adminTxs.length > 0 && adminTxs.every((tx) => selectedIds.has(tx.id))}
+                                onChange={() => toggleSelectAll(adminTxs)}
+                                className="rounded border-prizma-300"
+                              />
+                            </th>
                             <th className="px-4 py-2 text-left">Data</th>
                             <th className="px-4 py-2 text-left">Tipo</th>
                             <th className="px-4 py-2 text-right">Valor</th>
@@ -289,10 +347,17 @@ export default function AdministracaoPage() {
                         </thead>
                         <tbody className="divide-y divide-prizma-200">
                           {adminTxs.length === 0 && (
-                            <tr><td colSpan={6} className="px-4 py-4 text-center text-prizma-400 text-xs">Nenhum pagamento ainda.</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-4 text-center text-prizma-400 text-xs">Nenhum pagamento ainda.</td></tr>
                           )}
                           {adminTxs.map((tx) => (
-                            <ShareholderTxRow key={tx.id} shareholderId={sh.id} tx={tx} onChanged={load} />
+                            <ShareholderTxRow
+                              key={tx.id}
+                              shareholderId={sh.id}
+                              tx={tx}
+                              onChanged={load}
+                              selected={selectedIds.has(tx.id)}
+                              onToggleSelect={toggleSelect}
+                            />
                           ))}
                         </tbody>
                       </table>

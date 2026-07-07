@@ -30,6 +30,7 @@ export default function AcionistasPage() {
   const [loading, setLoading] = useState(true);
   const [openFormId, setOpenFormId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     fetch("/api/shareholders")
@@ -38,6 +39,44 @@ export default function AcionistasPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(sh: Shareholder) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = sh.transactions.length > 0 && sh.transactions.every((tx) => next.has(tx.id));
+      sh.transactions.forEach((tx) => {
+        if (allSelected) next.delete(tx.id); else next.add(tx.id);
+      });
+      return next;
+    });
+  }
+
+  async function handleBulkDelete(sh: Shareholder) {
+    const ids = sh.transactions.map((tx) => tx.id).filter((id) => selectedIds.has(id));
+    if (ids.length === 0) return;
+    if (!confirm(`Remover ${ids.length} lançamento${ids.length > 1 ? "s" : ""} selecionado${ids.length > 1 ? "s" : ""}?`)) return;
+
+    await fetch(`/api/shareholders/${sh.id}/transactions`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+    load();
+  }
 
   const totalAportado = shareholders.reduce(
     (s, sh) => s + calcShareholderSummary(sh.transactions).totalAportado, 0
@@ -78,16 +117,27 @@ export default function AcionistasPage() {
           <div className="space-y-8">
             {shareholders.map((sh) => {
               const summary = calcShareholderSummary(sh.transactions);
+              const selectedCount = sh.transactions.filter((tx) => selectedIds.has(tx.id)).length;
               return (
                 <section key={sh.id}>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-lg font-semibold text-prizma-700">{sh.name}</h2>
-                    <button
-                      onClick={() => setOpenFormId(openFormId === sh.id ? null : sh.id)}
-                      className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
-                    >
-                      {openFormId === sh.id ? "Cancelar" : "+ Novo lançamento"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {selectedCount > 0 && (
+                        <button
+                          onClick={() => handleBulkDelete(sh)}
+                          className="px-3 py-1.5 bg-white border border-negative text-negative hover:opacity-80 rounded-lg text-xs transition-colors"
+                        >
+                          Apagar selecionados ({selectedCount})
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setOpenFormId(openFormId === sh.id ? null : sh.id)}
+                        className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+                      >
+                        {openFormId === sh.id ? "Cancelar" : "+ Novo lançamento"}
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-prizma-400 uppercase tracking-wide mb-2">Capital — Aporte / Dividendo</p>
@@ -119,6 +169,14 @@ export default function AcionistasPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-prizma-100 text-prizma-400 text-xs">
                         <tr>
+                          <th className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={sh.transactions.length > 0 && sh.transactions.every((tx) => selectedIds.has(tx.id))}
+                              onChange={() => toggleSelectAll(sh)}
+                              className="rounded border-prizma-300"
+                            />
+                          </th>
                           <th className="px-4 py-2 text-left">Data</th>
                           <th className="px-4 py-2 text-left">Tipo</th>
                           <th className="px-4 py-2 text-right">Valor</th>
@@ -129,10 +187,17 @@ export default function AcionistasPage() {
                       </thead>
                       <tbody className="divide-y divide-prizma-200">
                         {sh.transactions.length === 0 && (
-                          <tr><td colSpan={6} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
+                          <tr><td colSpan={7} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
                         )}
                         {sh.transactions.map((tx) => (
-                          <ShareholderTxRow key={tx.id} shareholderId={sh.id} tx={tx} onChanged={load} />
+                          <ShareholderTxRow
+                            key={tx.id}
+                            shareholderId={sh.id}
+                            tx={tx}
+                            onChanged={load}
+                            selected={selectedIds.has(tx.id)}
+                            onToggleSelect={toggleSelect}
+                          />
                         ))}
                       </tbody>
                     </table>

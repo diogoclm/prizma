@@ -24,9 +24,11 @@ interface CashFlowRowProps {
   projectId: string;
   event: CashFlowEvent;
   onChanged: () => void;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }
 
-export function CashFlowRow({ projectId, event, onChanged }: CashFlowRowProps) {
+export function CashFlowRow({ projectId, event, onChanged, selected, onToggleSelect }: CashFlowRowProps) {
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(event.date.split("T")[0]);
   const [amount, setAmount] = useState(String(event.amount));
@@ -73,6 +75,9 @@ export function CashFlowRow({ projectId, event, onChanged }: CashFlowRowProps) {
   if (!editing) {
     return (
       <tr className="bg-prizma-50 hover:bg-white">
+        <td className="px-3 py-2">
+          <input type="checkbox" checked={selected} onChange={() => onToggleSelect(event.id)} className="rounded border-prizma-300" />
+        </td>
         <td className="px-4 py-2 text-prizma-600">{fmtDate(event.date)}</td>
         <td className={`px-4 py-2 text-right font-mono ${event.amount < 0 ? "text-negative" : "text-positive"}`}>
           {fmtBrl(event.amount)}
@@ -96,6 +101,9 @@ export function CashFlowRow({ projectId, event, onChanged }: CashFlowRowProps) {
 
   return (
     <tr className="bg-white">
+      <td className="px-3 py-2">
+        <input type="checkbox" checked={selected} onChange={() => onToggleSelect(event.id)} className="rounded border-prizma-300" />
+      </td>
       <td className="px-2 py-2">
         <input
           type="date"

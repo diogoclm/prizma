@@ -43,6 +43,7 @@ export default function ProjetoPage() {
   const [showForm, setShowForm] = useState(false);
   const [showBaselineForm, setShowBaselineForm] = useState(false);
   const [savingStage, setSavingStage] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadAll = useCallback(() => {
     if (!projectId) return;
@@ -68,6 +69,36 @@ export default function ProjetoPage() {
       body: JSON.stringify({ stage: newStage }),
     });
     setSavingStage(false);
+    loadAll();
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allSelected = events.length > 0 && events.every((e) => prev.has(e.id));
+      return allSelected ? new Set() : new Set(events.map((e) => e.id));
+    });
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Remover ${ids.length} lançamento${ids.length > 1 ? "s" : ""} selecionado${ids.length > 1 ? "s" : ""}?`)) return;
+
+    await fetch(`/api/projects/${projectId}/cashflows`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    setSelectedIds(new Set());
     loadAll();
   }
 
@@ -161,12 +192,22 @@ export default function ProjetoPage() {
       {/* Lançamento direto pelo painel */}
       <div className="mt-6 mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-prizma-600">Lançamentos ({events.length})</h2>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
-        >
-          {showForm ? "Cancelar" : "+ Novo lançamento"}
-        </button>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 bg-white border border-negative text-negative hover:opacity-80 rounded-lg text-xs transition-colors"
+            >
+              Apagar selecionados ({selectedIds.size})
+            </button>
+          )}
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+          >
+            {showForm ? "Cancelar" : "+ Novo lançamento"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -183,6 +224,14 @@ export default function ProjetoPage() {
         <table className="w-full text-sm">
           <thead className="bg-white text-prizma-400 text-xs">
             <tr>
+              <th className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={events.length > 0 && events.every((e) => selectedIds.has(e.id))}
+                  onChange={toggleSelectAll}
+                  className="rounded border-prizma-300"
+                />
+              </th>
               <th className="px-4 py-2 text-left">Data</th>
               <th className="px-4 py-2 text-right">Valor</th>
               <th className="px-4 py-2 text-left">Tipo</th>
@@ -193,10 +242,17 @@ export default function ProjetoPage() {
           </thead>
           <tbody className="divide-y divide-prizma-200">
             {events.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
             )}
             {events.map((e) => (
-              <CashFlowRow key={e.id} projectId={projectId} event={e} onChanged={loadAll} />
+              <CashFlowRow
+                key={e.id}
+                projectId={projectId}
+                event={e}
+                onChanged={loadAll}
+                selected={selectedIds.has(e.id)}
+                onToggleSelect={toggleSelect}
+              />
             ))}
           </tbody>
         </table>

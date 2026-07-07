@@ -51,3 +51,27 @@ export async function GET(
   });
   return NextResponse.json(txs);
 }
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+});
+
+/** DELETE /api/shareholders/:id/transactions — remove vários lançamentos de uma vez (body: { ids: string[] }). */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ shareholderId: string }> }
+) {
+  const { shareholderId } = await params;
+  const body = await req.json();
+  const parsed = bulkDeleteSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const result = await prisma.shareholderTransaction.deleteMany({
+    where: { id: { in: parsed.data.ids }, shareholderId },
+  });
+
+  return NextResponse.json({ deleted: result.count });
+}

@@ -57,3 +57,30 @@ export async function GET(
   });
   return NextResponse.json(events);
 }
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+});
+
+/**
+ * DELETE /api/projects/:projectId/cashflows
+ * Remove vários eventos de uma vez (body: { ids: string[] }), restrito ao projeto.
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  const { projectId } = await params;
+  const body = await req.json();
+  const parsed = bulkDeleteSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const result = await prisma.cashFlowEvent.deleteMany({
+    where: { id: { in: parsed.data.ids }, projectId },
+  });
+
+  return NextResponse.json({ deleted: result.count });
+}
