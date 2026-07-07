@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { coerceDate, coerceAmount } from "@/lib/import/coerce";
 
 /**
  * Colunas aceitas (case-insensitive, sem acento, com variações comuns):
@@ -88,40 +89,6 @@ export function parseWorkbookToRawRows(buffer: Buffer | ArrayBuffer): RawRow[] {
     }
     return normalized;
   });
-}
-
-function coerceDate(value: unknown): Date | undefined {
-  if (value instanceof Date) return value;
-  if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) return undefined;
-    return new Date(parsed.y, parsed.m - 1, parsed.d);
-  }
-  if (typeof value === "string") {
-    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (isoMatch) {
-      return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
-    }
-    const brMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (brMatch) {
-      return new Date(Number(brMatch[3]), Number(brMatch[2]) - 1, Number(brMatch[1]));
-    }
-    const fallback = new Date(value);
-    return isNaN(fallback.getTime()) ? undefined : fallback;
-  }
-  return undefined;
-}
-
-function coerceAmount(value: unknown): number | undefined {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const cleaned = value.trim().replace(/R\$\s?/, "").replace(/\./g, "").replace(",", ".");
-    const num = Number(cleaned);
-    if (!isNaN(num)) return num;
-    const numUs = Number(value.replace(/[^0-9.-]/g, ""));
-    return isNaN(numUs) ? undefined : numUs;
-  }
-  return undefined;
 }
 
 /** Valida e converte as linhas brutas em lançamentos de acionista, linha a linha. */

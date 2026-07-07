@@ -49,9 +49,9 @@ describe("parseAndValidate — planilha válida", () => {
     const result = parseAndValidate(buf);
     expect(result.errors).toHaveLength(0);
     const d = result.validRows[0].date;
-    expect(d.getFullYear()).toBe(2024);
-    expect(d.getMonth()).toBe(2); // março = 2 (0-indexed)
-    expect(d.getDate()).toBe(15);
+    expect(d.getUTCFullYear()).toBe(2024);
+    expect(d.getUTCMonth()).toBe(2); // março = 2 (0-indexed)
+    expect(d.getUTCDate()).toBe(15);
   });
 
   it("aceita valor como string no formato BR (1.500,00)", () => {

@@ -13,7 +13,9 @@ export async function GET() {
   ]);
 
   const deliveredProjects = allSpeMetrics
-    .filter((m) => m.stage === "ENTREGUE")
+    // ENCERRADO inclui projetos que já foram ENTREGUE e depois fechados — se saldo
+    // de administração ficou pendente, encerrar a SPE não pode fazê-lo desaparecer.
+    .filter((m) => m.stage === "ENTREGUE" || m.stage === "ENCERRADO")
     .map((m) => ({
       projectId: m.projectId,
       projectName: m.name,

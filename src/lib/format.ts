@@ -16,7 +16,9 @@ export function fmtBrl(value: number | null): string {
 export function fmtDate(date: Date | string | null): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("pt-BR");
+  // Datas são armazenadas em meia-noite UTC (ver src/lib/import/coerce.ts) — formatar
+  // em UTC evita que o dia exibido varie conforme o fuso do navegador/servidor.
+  return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
 export const STAGE_LABELS: Record<string, string> = {

@@ -56,12 +56,17 @@ export default function DashboardPage() {
     });
   }, []);
 
-  const totalImob = spes.reduce((s, p) => s + p.totalInvested, 0);
+  // /api/imobiliario retorna todos os projetos IMOBILIARIO, inclusive LANDBANKING —
+  // terrenos são contabilizados separadamente (seção Terrenos), então precisam ser
+  // excluídos daqui para não somar duas vezes no capital total investido.
+  const spesSemTerreno = spes.filter((p) => p.stage !== "LANDBANKING");
+
+  const totalImob = spesSemTerreno.reduce((s, p) => s + p.totalInvested, 0);
   const totalHotel = hotel?.totalInvested ?? 0;
   const totalTerrenos = terrenos.reduce((s, t) => s + t.totalInvested, 0);
   const totalGeral = totalImob + totalHotel + totalTerrenos;
 
-  const totalDistImob = spes.reduce((s, p) => s + p.totalDistributed, 0);
+  const totalDistImob = spesSemTerreno.reduce((s, p) => s + p.totalDistributed, 0);
   const totalDistHotel = hotel?.totalDistributed ?? 0;
   const totalProfit = totalDistImob + totalDistHotel - (totalImob + totalHotel);
 
@@ -70,7 +75,7 @@ export default function DashboardPage() {
     0
   );
 
-  const incorporacaoData = spes.filter((p) => p.stage !== "LANDBANKING");
+  const incorporacaoData = spesSemTerreno;
   const incorporacaoInvested = incorporacaoData.reduce((s, p) => s + p.totalInvested, 0);
   const incorporacaoDistributed = incorporacaoData.reduce((s, p) => s + p.totalDistributed, 0);
   const incorporacaoProfit = incorporacaoDistributed - incorporacaoInvested;
@@ -112,7 +117,7 @@ export default function DashboardPage() {
               value={fmtBrl(totalProfit)}
               highlight={totalProfit >= 0 ? "positive" : "negative"}
             />
-            <MetricCard label="Projetos imobiliários" value={spes.length} />
+            <MetricCard label="Projetos imobiliários" value={spesSemTerreno.length} />
             <MetricCard label="Terrenos" value={terrenos.length} />
           </div>
 
@@ -223,7 +228,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-incorp-border">
-                    {spes.filter((p) => p.stage !== "LANDBANKING").map((p) => (
+                    {spesSemTerreno.map((p) => (
                       <tr key={p.projectId} className="bg-white hover:bg-incorp-bg">
                         <td className="px-4 py-2">
                           <Link
