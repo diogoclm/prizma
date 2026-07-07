@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface PreviewRow {
   row: number;
@@ -44,14 +44,29 @@ const ORIGIN_COLORS: Record<string, string> = {
   PROJETADO: "text-prizma-700",
 };
 
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
 export default function ImportarPage() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [projectId, setProjectId] = useState("spe-001");
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
   const [loading, setLoading] = useState<"preview" | "import" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d: ProjectOption[]) => {
+        setProjects(d);
+        setProjectId((current) => current || (d.length > 0 ? d[0].id : ""));
+      });
+  }, []);
 
   async function handlePreview() {
     if (!file) return;
@@ -120,15 +135,10 @@ export default function ImportarPage() {
               onChange={(e) => setProjectId(e.target.value)}
               className="w-full bg-prizma-100 border border-prizma-300 rounded-lg px-3 py-2 text-prizma-900 text-sm"
             >
-              <option value="hotel-001">Hotel Prizma (Operação)</option>
-              <option value="spe-001">SPE Residencial Alpha</option>
-              <option value="spe-002">SPE Comercial Beta</option>
-              <option value="spe-003">SPE Residencial Gamma</option>
-              <option value="spe-004">SPE Delta (Pré-lançamento)</option>
-              <option value="lb-001">Terreno Epsilon</option>
-              <option value="lb-002">Terreno Zeta</option>
-              <option value="lb-003">Terreno Eta</option>
-              <option value="lb-004">Terreno Theta</option>
+              {projects.length === 0 && <option value="">Nenhum projeto cadastrado</option>}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -151,7 +161,7 @@ export default function ImportarPage() {
         <div className="flex gap-3">
           <button
             onClick={handlePreview}
-            disabled={!file || loading !== null}
+            disabled={!file || !projectId || loading !== null}
             className="px-4 py-2 bg-prizma-200 hover:bg-prizma-500 disabled:opacity-40 rounded-lg text-sm text-white transition-colors"
           >
             {loading === "preview" ? "Analisando..." : "Pré-visualizar"}
