@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { STAGE_LABELS, STAGE_COLORS } from "@/lib/format";
+import { ProjectCreateForm } from "@/components/ui/ProjectCreateForm";
 
 interface ProjectListItem {
   id: string;
@@ -15,8 +16,9 @@ interface ProjectListItem {
 export default function ProjetosPage() {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     Promise.all([
       fetch("/api/imobiliario").then((r) => r.json()),
       fetch("/api/hoteleiro").then((r) => r.json()),
@@ -36,10 +38,32 @@ export default function ProjetosPage() {
     });
   }, []);
 
+  useEffect(() => { load(); }, [load]);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Remover o projeto "${name}" e todos os seus dados (fluxos, baselines, valuations)?`)) return;
+    await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    load();
+  }
+
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-prizma-900">Todos os Projetos</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-prizma-900">Todos os Projetos</h1>
+        <button
+          onClick={() => setShowCreateForm((v) => !v)}
+          className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+        >
+          {showCreateForm ? "Cancelar" : "+ Novo projeto"}
+        </button>
+      </div>
       <p className="text-prizma-400 text-sm mt-1 mb-6">{projects.length} projetos cadastrados</p>
+
+      {showCreateForm && (
+        <div className="mb-6">
+          <ProjectCreateForm onCreated={() => { setShowCreateForm(false); load(); }} />
+        </div>
+      )}
 
       {loading ? (
         <p className="text-prizma-400">Carregando...</p>
@@ -70,13 +94,19 @@ export default function ProjetosPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-prizma-400">{p.ownershipPct}%</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Link
                       href={p.branch === "HOTELEIRO" ? "/dashboard/hoteleiro" : `/dashboard/projetos/${p.id}`}
-                      className="text-prizma-400 hover:text-prizma-300 text-xs"
+                      className="text-prizma-400 hover:text-prizma-300 text-xs mr-3"
                     >
                       Ver detalhes →
                     </Link>
+                    <button
+                      onClick={() => handleDelete(p.id, p.name)}
+                      className="text-negative hover:opacity-80 text-xs"
+                    >
+                      remover
+                    </button>
                   </td>
                 </tr>
               ))}
