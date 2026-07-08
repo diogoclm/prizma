@@ -44,6 +44,7 @@ export default function ProjetoPage() {
   const [showBaselineForm, setShowBaselineForm] = useState(false);
   const [savingStage, setSavingStage] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [tab, setTab] = useState<"fluxo" | "marcos">("fluxo");
 
   const loadAll = useCallback(() => {
     if (!projectId) return;
@@ -189,98 +190,121 @@ export default function ProjetoPage() {
         </>
       )}
 
-      {/* Lançamento direto pelo painel */}
+      {/* Abas: Fluxo de Caixa | Baseline & Marcos */}
       <div className="mt-6 mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-prizma-600">Lançamentos ({events.length})</h2>
-        <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="px-3 py-1.5 bg-white border border-negative text-negative hover:opacity-80 rounded-lg text-xs transition-colors"
-            >
-              Apagar selecionados ({selectedIds.size})
-            </button>
-          )}
+        <div className="inline-flex gap-1 bg-white border border-prizma-300 rounded-lg p-1">
           <button
-            onClick={() => setShowForm((v) => !v)}
-            className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+            onClick={() => setTab("fluxo")}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+              tab === "fluxo" ? "bg-prizma-800 text-white" : "text-prizma-600 hover:text-prizma-900"
+            }`}
           >
-            {showForm ? "Cancelar" : "+ Novo lançamento"}
+            Fluxo de Caixa ({events.length})
+          </button>
+          <button
+            onClick={() => setTab("marcos")}
+            className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+              tab === "marcos" ? "bg-prizma-800 text-white" : "text-prizma-600 hover:text-prizma-900"
+            }`}
+          >
+            Baseline &amp; Marcos ({baselines.length})
           </button>
         </div>
-      </div>
 
-      {showForm && (
-        <div className="mb-4">
-          <CashFlowForm
-            projectId={projectId}
-            onCreated={() => { setShowForm(false); loadAll(); }}
-          />
-        </div>
-      )}
-
-      {/* Tabela de lançamentos */}
-      <div className="rounded-xl border border-prizma-300 overflow-hidden mb-6">
-        <table className="w-full text-sm">
-          <thead className="bg-white text-prizma-400 text-xs">
-            <tr>
-              <th className="px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={events.length > 0 && events.every((e) => selectedIds.has(e.id))}
-                  onChange={toggleSelectAll}
-                  className="rounded border-prizma-300"
-                />
-              </th>
-              <th className="px-4 py-2 text-left">Data</th>
-              <th className="px-4 py-2 text-right">Valor</th>
-              <th className="px-4 py-2 text-left">Tipo</th>
-              <th className="px-4 py-2 text-left">Origem</th>
-              <th className="px-4 py-2 text-left">Descrição</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-prizma-200">
-            {events.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
+        {tab === "fluxo" ? (
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="px-3 py-1.5 bg-white border border-negative text-negative hover:opacity-80 rounded-lg text-xs transition-colors"
+              >
+                Apagar selecionados ({selectedIds.size})
+              </button>
             )}
-            {events.map((e) => (
-              <CashFlowRow
-                key={e.id}
+            <button
+              onClick={() => setShowForm((v) => !v)}
+              className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+            >
+              {showForm ? "Cancelar" : "+ Novo lançamento"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowBaselineForm((v) => !v)}
+            className="px-3 py-1.5 bg-prizma-800 hover:bg-prizma-900 rounded-lg text-xs text-white transition-colors"
+          >
+            {showBaselineForm ? "Cancelar" : "+ Novo marco"}
+          </button>
+        )}
+      </div>
+
+      {tab === "fluxo" && (
+        <>
+          {showForm && (
+            <div className="mb-4">
+              <CashFlowForm
                 projectId={projectId}
-                event={e}
-                onChanged={loadAll}
-                selected={selectedIds.has(e.id)}
-                onToggleSelect={toggleSelect}
+                onCreated={() => { setShowForm(false); loadAll(); }}
               />
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </div>
+          )}
 
-      {/* Marcos (baseline) */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-prizma-600">Marcos / Baseline</h2>
-        <button
-          onClick={() => setShowBaselineForm((v) => !v)}
-          className="px-3 py-1.5 bg-prizma-800 hover:bg-prizma-900 rounded-lg text-xs text-white transition-colors"
-        >
-          {showBaselineForm ? "Cancelar" : "+ Novo marco"}
-        </button>
-      </div>
-
-      {showBaselineForm && (
-        <div className="mb-4">
-          <BaselineForm
-            projectId={projectId}
-            onCreated={() => { setShowBaselineForm(false); loadAll(); }}
-          />
-        </div>
+          <div className="rounded-xl border border-prizma-300 overflow-hidden mb-6">
+            <table className="w-full text-sm">
+              <thead className="bg-white text-prizma-400 text-xs">
+                <tr>
+                  <th className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={events.length > 0 && events.every((e) => selectedIds.has(e.id))}
+                      onChange={toggleSelectAll}
+                      className="rounded border-prizma-300"
+                    />
+                  </th>
+                  <th className="px-4 py-2 text-left">Data</th>
+                  <th className="px-4 py-2 text-right">Valor</th>
+                  <th className="px-4 py-2 text-left">Tipo</th>
+                  <th className="px-4 py-2 text-left">Origem</th>
+                  <th className="px-4 py-2 text-left">Descrição</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-prizma-200">
+                {events.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-6 text-center text-prizma-400">Nenhum lançamento ainda.</td></tr>
+                )}
+                {events.map((e) => (
+                  <CashFlowRow
+                    key={e.id}
+                    projectId={projectId}
+                    event={e}
+                    onChanged={loadAll}
+                    selected={selectedIds.has(e.id)}
+                    onToggleSelect={toggleSelect}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
-      <div className="mb-6">
-        <BaselineList baselines={baselines} projectId={projectId} onChanged={loadAll} />
-      </div>
+      {tab === "marcos" && (
+        <>
+          {showBaselineForm && (
+            <div className="mb-4">
+              <BaselineForm
+                projectId={projectId}
+                onCreated={() => { setShowBaselineForm(false); loadAll(); }}
+              />
+            </div>
+          )}
+
+          <div className="mb-6">
+            <BaselineList baselines={baselines} projectId={projectId} onChanged={loadAll} />
+          </div>
+        </>
+      )}
 
       {/* Links rápidos */}
       <div className="flex gap-3">
