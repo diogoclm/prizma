@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { roleFromMetadata, canAccess } from "@/lib/auth/roles";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/api"];
 
@@ -37,6 +38,18 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  if (user && isProtected) {
+    const role = roleFromMetadata(user.app_metadata);
+    if (!canAccess(role, request.nextUrl.pathname)) {
+      if (isApi) {
+        return NextResponse.json({ error: "Acesso restrito ao administrador" }, { status: 403 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   if (user && request.nextUrl.pathname === "/login") {

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { LogoutButton } from "@/components/ui/LogoutButton";
+import { createClient } from "@/lib/supabase/server";
+import { roleFromMetadata } from "@/lib/auth/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Visão Geral" },
@@ -11,13 +13,18 @@ const navItems = [
   { href: "/dashboard/importar", label: "Importar Planilha" },
 ];
 
-const societarioItems = [
-  { href: "/dashboard/acionistas", label: "Acionistas" },
-  { href: "/dashboard/administracao", label: "Administração" },
-  { href: "/dashboard/pl", label: "Participação de Lucros" },
-];
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = roleFromMetadata(user?.app_metadata);
+  const isAdmin = role === "ADMIN";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const societarioItems = [
+    { href: "/dashboard/acionistas", label: "Acionistas" },
+    { href: "/dashboard/administracao", label: "Administração" },
+    ...(isAdmin ? [{ href: "/dashboard/pl", label: "Participação de Lucros" }] : []),
+  ];
+
   return (
     <div className="min-h-screen bg-prizma-50 text-prizma-700 flex">
       {/* Sidebar */}
@@ -49,8 +56,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {item.label}
             </Link>
           ))}
+
+          {isAdmin && (
+            <>
+              <p className="text-[10px] uppercase tracking-wide text-prizma-400 font-medium px-3 pt-4 pb-1">
+                Configuração
+              </p>
+              <Link
+                href="/dashboard/usuarios"
+                className="block px-3 py-2 rounded text-prizma-600 hover:bg-prizma-100 hover:text-prizma-900 transition-colors text-sm"
+              >
+                Usuários
+              </Link>
+            </>
+          )}
         </nav>
         <div className="p-3 border-t border-prizma-300">
+          {user?.email && (
+            <p className="text-[10px] text-prizma-400 px-3 pb-2 truncate">
+              {user.email} · {isAdmin ? "Admin" : "Analista"}
+            </p>
+          )}
           <LogoutButton />
         </div>
       </aside>
