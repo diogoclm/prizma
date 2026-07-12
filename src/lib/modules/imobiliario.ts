@@ -49,18 +49,18 @@ export async function calcSpeMetrics(projectId: string): Promise<SpeMetrics> {
     },
   });
 
-  const fraction = project.ownershipPct / 100;
-
-  // Fluxos realizados
+  // Os lançamentos já representam o caixa da própria Prizma (aportes que ela fez,
+  // distribuições que ela recebeu) — NÃO multiplicar por ownershipPct, senão a
+  // participação é descontada duas vezes. ownershipPct é apenas informativo aqui.
   const realizedFlows: CashFlow[] = project.cashFlowEvents
     .filter((e) => e.origin === "REALIZADO")
-    .map((e) => ({ date: e.date, amount: e.amount * fraction }));
+    .map((e) => ({ date: e.date, amount: e.amount }));
 
   // Fluxos projetados futuros (para reprojeção)
   const today = new Date();
   const projectedFutureFlows: CashFlow[] = project.cashFlowEvents
     .filter((e) => e.origin === "PROJETADO" && e.date > today)
-    .map((e) => ({ date: e.date, amount: e.amount * fraction }));
+    .map((e) => ({ date: e.date, amount: e.amount }));
 
   // Métricas realizadas
   const totalInvested = realizedFlows
