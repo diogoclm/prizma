@@ -69,8 +69,27 @@ model Project {
   valuations       Valuation[]
   importBatches    ImportBatch[]
   shareholderTransactions ShareholderTransaction[]
+  adminManualEntry AdminManualProject?
 
   @@map("projects")
+}
+
+// ─── Administração: projeto incluído manualmente no saldo ───────────────────
+// O saldo por projeto é calculado automaticamente para incorporação
+// entregue/encerrada. Esta tabela permite incluir outros projetos (ex:
+// hoteleiro) informando o lucro manualmente.
+
+model AdminManualProject {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  lucro     Float    @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("admin_manual_projects")
 }
 
 // ─── Eventos de fluxo de caixa ───────────────────────────────────────────────

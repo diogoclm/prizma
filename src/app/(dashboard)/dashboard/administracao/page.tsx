@@ -43,6 +43,14 @@ interface AdminByProjectResult {
   paidTotal: number;
   balanceTotal: number;
   byAdministrator: AdminByAdministrator[];
+  isManual: boolean;
+  manualId: string | null;
+  manualNotes: string | null;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
 }
 
 export default function AdministracaoPage() {
@@ -54,14 +62,23 @@ export default function AdministracaoPage() {
   const [editingPctId, setEditingPctId] = useState<string | null>(null);
   const [pctValue, setPctValue] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualProjectId, setManualProjectId] = useState("");
+  const [manualLucro, setManualLucro] = useState("");
+  const [manualNotes, setManualNotes] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     Promise.all([
       fetch("/api/shareholders").then((r) => r.json()),
       fetch("/api/admin-balance").then((r) => r.json()),
-    ]).then(([sh, bal]) => {
+      fetch("/api/projects").then((r) => r.json()),
+    ]).then(([sh, bal, projs]) => {
       setShareholders(sh);
       setBalances(bal);
+      setAllProjects(projs);
       setLoading(false);
     });
   }, []);
@@ -77,6 +94,54 @@ export default function AdministracaoPage() {
     setEditingPctId(null);
     load();
   }
+
+  function openManualForm(entry?: AdminByProjectResult) {
+    setManualProjectId(entry?.projectId ?? "");
+    setManualLucro(entry ? String(entry.lucro) : "");
+    setManualNotes(entry?.manualNotes ?? "");
+    setManualError(null);
+    setShowManualForm(true);
+  }
+
+  async function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setManualSaving(true);
+    setManualError(null);
+
+    const res = await fetch("/api/admin-balance/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: manualProjectId,
+        lucro: parseFloat(manualLucro.replace(",", ".")) || 0,
+        notes: manualNotes || undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      setManualError("Erro ao salvar projeto manual");
+      setManualSaving(false);
+      return;
+    }
+
+    setShowManualForm(false);
+    setManualSaving(false);
+    load();
+  }
+
+  async function handleManualDelete(entry: AdminByProjectResult) {
+    if (!entry.manualId) return;
+    if (!confirm(`Remover "${entry.projectName}" do saldo de administração?`)) return;
+    await fetch(`/api/admin-balance/manual/${entry.manualId}`, { method: "DELETE" });
+    load();
+  }
+
+  // No seletor: projetos ainda fora da tabela (os automáticos já estão lá) —
+  // mais o projeto em edição, para o select exibir o nome dele.
+  const projectsInTable = new Set(balances.map((b) => b.projectId));
+  const manualOptions = allProjects.filter(
+    (p) => !projectsInTable.has(p.id) || p.id === manualProjectId
+  );
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -200,12 +265,73 @@ export default function AdministracaoPage() {
             </div>
           </section>
 
-          {/* Saldo de administração por projeto (automático) */}
+          {/* Saldo de administração por projeto (automático + manual) */}
           <section className="mb-8">
-            <h2 className="text-lg font-semibold text-prizma-700 mb-3">Saldo por Projeto</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-prizma-700">Saldo por Projeto</h2>
+              <button
+                onClick={() => (showManualForm ? setShowManualForm(false) : openManualForm())}
+                className="px-3 py-1.5 bg-prizma-100 hover:bg-prizma-200 rounded-lg text-xs text-prizma-800 transition-colors"
+              >
+                {showManualForm ? "Cancelar" : "+ Adicionar projeto"}
+              </button>
+            </div>
             <p className="text-xs text-prizma-400 mb-3">
-              Apenas projetos de incorporação entregues. Lucro negativo zera a administração esperada.
+              Incorporação entregue/encerrada entra automaticamente. Outros projetos (ex: hoteleiro)
+              podem ser adicionados manualmente informando o lucro. Lucro negativo zera a administração esperada.
             </p>
+
+            {showManualForm && (
+              <form onSubmit={handleManualSubmit} className="bg-white border border-prizma-300 rounded-xl p-5 space-y-4 mb-4">
+                <h3 className="text-sm font-semibold text-prizma-600">Projeto manual no saldo de administração</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-prizma-400 mb-1">Projeto</label>
+                    <select
+                      value={manualProjectId}
+                      onChange={(e) => setManualProjectId(e.target.value)}
+                      required
+                      className="w-full bg-white border border-prizma-300 rounded-lg px-3 py-2 text-prizma-900 text-sm"
+                    >
+                      <option value="">Selecione...</option>
+                      {manualOptions.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-prizma-400 mb-1">Lucro (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={manualLucro}
+                      onChange={(e) => setManualLucro(e.target.value)}
+                      required
+                      placeholder="0,00"
+                      className="w-full bg-white border border-prizma-300 rounded-lg px-3 py-2 text-prizma-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-prizma-400 mb-1">Observações</label>
+                    <input
+                      type="text"
+                      value={manualNotes}
+                      onChange={(e) => setManualNotes(e.target.value)}
+                      placeholder="Opcional"
+                      className="w-full bg-white border border-prizma-300 rounded-lg px-3 py-2 text-prizma-900 text-sm"
+                    />
+                  </div>
+                </div>
+                {manualError && <p className="text-negative text-xs">{manualError}</p>}
+                <button
+                  type="submit"
+                  disabled={manualSaving}
+                  className="px-4 py-2 bg-prizma-800 hover:bg-prizma-900 disabled:opacity-40 rounded-lg text-sm text-white transition-colors"
+                >
+                  {manualSaving ? "Salvando..." : "Salvar"}
+                </button>
+              </form>
+            )}
 
             <div className="rounded-xl border border-prizma-300 overflow-hidden">
               <table className="w-full text-sm">
@@ -221,12 +347,22 @@ export default function AdministracaoPage() {
                 </thead>
                 <tbody className="divide-y divide-prizma-200">
                   {balances.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-6 text-center text-prizma-400">Nenhum projeto entregue ainda.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-6 text-center text-prizma-400">Nenhum projeto no saldo ainda — entregue um projeto de incorporação ou adicione manualmente.</td></tr>
                   )}
                   {balances.map((b) => (
                     <Fragment key={b.projectId}>
                       <tr className="bg-white hover:bg-prizma-50">
-                        <td className="px-4 py-2 text-prizma-900">{b.projectName}</td>
+                        <td className="px-4 py-2 text-prizma-900">
+                          {b.projectName}
+                          {b.isManual && (
+                            <span
+                              className="ml-2 px-1.5 py-0.5 rounded bg-prizma-100 text-prizma-500 text-[10px] uppercase tracking-wide"
+                              title={b.manualNotes ?? undefined}
+                            >
+                              manual
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-right font-mono">
                           <span className={b.lucro >= 0 ? "text-positive" : "text-negative"}>{fmtBrl(b.lucro)}</span>
                         </td>
@@ -242,6 +378,22 @@ export default function AdministracaoPage() {
                           >
                             {expandedProjectId === b.projectId ? "ocultar" : "detalhar"}
                           </button>
+                          {b.isManual && (
+                            <>
+                              <button
+                                onClick={() => openManualForm(b)}
+                                className="text-prizma-600 hover:text-prizma-900 text-xs ml-3"
+                              >
+                                editar
+                              </button>
+                              <button
+                                onClick={() => handleManualDelete(b)}
+                                className="text-negative hover:opacity-80 text-xs ml-3"
+                              >
+                                remover
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                       {expandedProjectId === b.projectId && (
